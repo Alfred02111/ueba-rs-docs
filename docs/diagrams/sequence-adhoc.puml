@@ -1,0 +1,47 @@
+@startuml
+skinparam defaultFontName "Liberation Sans"
+skinparam dpi 150
+skinparam shadowing false
+skinparam sequenceMessageAlign center
+skinparam ParticipantPadding 8
+skinparam responseMessageBelowArrow true
+autonumber
+
+actor "Аналитик\nL2/L3" as A
+participant "Дашборд" as UI
+participant "Ядро\nскоринга" as C
+participant "Слой\nхранения" as S
+database "БД\nSQLite" as DB
+participant "Экспортёр" as E
+participant "SIEM" as SIEM
+
+A -> UI : Выбирает объект,\nнажимает «Рассчитать»
+UI -> S : load_inputs()
+S -> DB : SELECT score FROM\nanomaly_score, centrality_score\n(последние значения\nактивных объектов)
+DB --> S : строки векторов
+S -> DB : SELECT * FROM scoring_config\nWHERE is_active = 1
+DB --> S : веса и пороги
+S --> UI : векторы оценок\n(pd.Series), config
+UI -> C : calculate_risk_score(\nanomaly_scores,\ncentrality_scores,\nweights, normalize)
+C -> C : валидация,\nнормализация Min-Max,\nвзвешенная сумма × 100
+
+alt ошибка валидации
+  C --> UI : TypeError / ValueError
+  UI --> A : Сообщение об ошибке расчёта
+else расчёт выполнен
+  C --> UI : risk_scores (pd.Series)
+  UI -> C : get_risk_level(risk_scores)
+  C --> UI : уровни риска
+  UI -> S : save_results(\nrisk_scores, levels)
+  S -> DB : INSERT INTO risk_result\n(транзакция)
+  DB --> S : OK
+  opt Risk Score ≥ порога
+    UI -> E : send_alert(\nobject_id, risk_score)
+    E -> SIEM : Уведомление (HTTPS)
+    SIEM --> E : 200 OK
+    E -> S : mark_exported(result_id)
+    S -> DB : UPDATE risk_result\nSET exported_at
+  end
+  UI --> A : Карточка объекта:\nRisk Score и уровень
+end
+@enduml

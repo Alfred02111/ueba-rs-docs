@@ -1,0 +1,63 @@
+@startuml
+skinparam defaultFontName "Liberation Sans"
+skinparam dpi 150
+skinparam shadowing false
+hide circle
+skinparam linetype ortho
+
+entity "monitored_object\n(Объект мониторинга)" as mo {
+  * object_id : TEXT <<PK>>
+  --
+  * object_type : TEXT
+  * is_active : INTEGER
+  * created_at : TEXT
+}
+entity "anomaly_score\n(Вектор аномальности)" as an {
+  * anomaly_id : INTEGER <<PK>>
+  --
+  * object_id : TEXT <<FK>>
+  * score : REAL
+  * calculated_at : TEXT
+  model_version : TEXT
+}
+entity "centrality_score\n(Вектор центральности)" as ce {
+  * centrality_id : INTEGER <<PK>>
+  --
+  * object_id : TEXT <<FK>>
+  * score : REAL
+  * calculated_at : TEXT
+  metric : TEXT
+}
+entity "scoring_config\n(Конфигурация скоринга)" as cf {
+  * config_id : INTEGER <<PK>>
+  --
+  * weight_anomaly : REAL
+  * weight_centrality : REAL
+  * threshold_medium : REAL
+  * threshold_high : REAL
+  * threshold_critical : REAL
+  * normalize : INTEGER
+  * is_active : INTEGER
+  * created_at : TEXT
+  created_by : TEXT
+}
+entity "risk_result\n(Итоговая оценка риска)" as rr {
+  * result_id : INTEGER <<PK>>
+  --
+  * object_id : TEXT <<FK>>
+  * config_id : INTEGER <<FK>>
+  * anomaly_id : INTEGER <<FK>>
+  * centrality_id : INTEGER <<FK>>
+  * risk_score : REAL
+  * risk_level : TEXT
+  * calculated_at : TEXT
+  exported_at : TEXT
+}
+
+mo ||--o{ an
+mo ||--o{ ce
+mo ||--o{ rr
+cf ||--o{ rr
+an ||--o{ rr
+ce ||--o{ rr
+@enduml

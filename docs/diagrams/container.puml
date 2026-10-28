@@ -1,0 +1,41 @@
+@startuml
+skinparam defaultFontName "Liberation Sans"
+skinparam dpi 150
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam rectangle {
+  BackgroundColor #F7F7F7
+  BorderColor #444444
+}
+
+actor "SOC-аналитик" as Analyst
+actor "Администратор ИБ" as Admin
+
+rectangle "Внешние источники данных" as Ext {
+  component "Isolation Forest\n(аномальность)" as ML
+  component "NetworkX\n(центральность)" as GR
+}
+
+rectangle "Система UEBA-RS-1.0" as Sys {
+  component "Дашборд\n(Streamlit)" as UI
+  component "Пакетный\nрасчёт" as Batch
+  component "Ядро скоринга\n(risk_scorer.py)" as Core
+  component "Слой хранения\n(storage.py)" as Store
+  component "Экспортёр\n(exporter.py)" as Exp
+  database "SQLite\nueba_rs.db" as DB
+}
+
+component "SIEM-система" as SIEM
+
+ML --> Store : векторы аномальности
+GR --> Store : векторы центральности
+Store --> DB : SQL
+Batch --> Store : чтение входов,\nзапись результатов
+Batch --> Core : calculate_risk_score()
+UI --> Core : расчёт по требованию
+UI --> Store : чтение результатов
+Core --> Exp : результаты\n(Risk Score ≥ порога)
+Exp --> SIEM : уведомления, CSV/JSON
+Analyst --> UI : HTTPS
+Admin --> Batch : .env, cron
+@enduml
